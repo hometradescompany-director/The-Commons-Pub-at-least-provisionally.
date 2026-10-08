@@ -39,4 +39,4 @@ Refusal, timeout, disconnect and host shutdown route to `safe_reset`. No transit
 - Browser screenshots or videos count as visual evidence only when captured and attached; unit tests alone do not certify a rendered experience.
 
 ## Licensing and contributions
-The repository currently declares CC0 1.0 Universal. This document does not change that licence, grant rights to third-party content, or imply that private Atlas/Swarm implementations are contributed. Reassess software licensing separately before introducing substantial dependencies or proprietary integrations.
+The repository's current LICENSE is Apache License 2.0 (SPDX: Apache-2.0). This document does not grant rights to third-party content or imply that private Atlas/Swarm implementations are contributed. Preserve applicable third-party notices and review dependencies and provenance before integration. The earlier CC0 dedication may remain relevant to previously released material; this change does not retroactively revoke rights already granted.
