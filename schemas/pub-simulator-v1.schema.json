@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/commons-pub/pub-simulator-v1.schema.json",
+  "title": "Commons Pub Simulator v1",
+  "type": "object",
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "participant": { "$ref": "#/$defs/participant" },
+    "observer": { "$ref": "#/$defs/observer" },
+    "session": { "$ref": "#/$defs/session" },
+    "event": { "$ref": "#/$defs/event" }
+  },
+  "required": ["schemaVersion"],
+  "additionalProperties": false,
+  "$defs": {
+    "participant": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "identity": { "type": "string" }
+      },
+      "required": ["schemaVersion", "id", "label", "identity"],
+      "additionalProperties": false
+    },
+    "observer": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "id": { "type": "string" },
+        "label": { "type": "string" }
+      },
+      "required": ["schemaVersion", "id", "label"],
+      "additionalProperties": false
+    },
+    "session": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "sessionId": { "type": "string" },
+        "phase": {
+          "enum": ["refused", "baseline", "modulated", "recovery", "verified_exit"]
+        },
+        "active": { "type": "boolean" },
+        "elapsedTicks": { "type": "integer", "minimum": 0 },
+        "expiresAtTick": { "type": "integer", "minimum": 1 },
+        "modulationLevel": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "required": [
+        "schemaVersion",
+        "sessionId",
+        "phase",
+        "active",
+        "elapsedTicks",
+        "expiresAtTick",
+        "modulationLevel"
+      ],
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "eventId": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "tick": { "type": "integer", "minimum": 0 },
+        "type": { "type": "string" },
+        "data": { "type": "object" },
+        "previousHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "required": [
+        "schemaVersion",
+        "eventId",
+        "sessionId",
+        "sequence",
+        "tick",
+        "type",
+        "data",
+        "previousHash",
+        "hash"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
