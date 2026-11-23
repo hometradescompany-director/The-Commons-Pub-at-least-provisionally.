@@ -4,9 +4,14 @@ import { renderChoices, renderSnapshot } from "/renderer-2d.js";
 const simulator = new PubSimulator();
 const root = document;
 let sessionId;
+let startInFlight = false;
 
 function showMessage(message) {
   root.querySelector("#message").textContent = message;
+}
+
+function syncEnterControl(snapshot = sessionId ? simulator.getSnapshot(sessionId) : undefined) {
+  root.querySelector("#enter").disabled = startInFlight || Boolean(snapshot?.active);
 }
 
 function renderAudit() {
@@ -32,16 +37,19 @@ function renderAudit() {
 async function update(snapshot, message) {
   renderSnapshot(root, snapshot);
   renderAudit();
-  root.querySelector("#enter").disabled = snapshot.active;
+  syncEnterControl(snapshot);
   if (message) showMessage(message);
 }
 
 root.querySelector("#consent").addEventListener("change", event => {
-  root.querySelector("#enter").disabled = Boolean(sessionId && simulator.getSnapshot(sessionId).active);
+  syncEnterControl();
   if (!event.currentTarget.checked) showMessage("Consent is optional and can be refused.");
 });
 
 root.querySelector("#enter").addEventListener("click", async () => {
+  if (startInFlight) return;
+  startInFlight = true;
+  syncEnterControl();
   const seed = Number(root.querySelector("#seed").value);
   try {
     const snapshot = await simulator.startSession({
@@ -55,6 +63,9 @@ root.querySelector("#enter").addEventListener("click", async () => {
     await update(snapshot, snapshot.active ? "Session started. Modulation is zero by default." : "Session refused; nothing was started.");
   } catch {
     showMessage("Invalid setup. Use the bounded tick and seed values shown.");
+  } finally {
+    startInFlight = false;
+    syncEnterControl();
   }
 });
 
@@ -65,12 +76,15 @@ root.querySelector("#modulation").addEventListener("input", event => {
 root.querySelector("#apply").addEventListener("click", async () => {
   const level = Number(root.querySelector("#modulation").value) / 100;
   const result = await simulator.setModulation(sessionId, { level });
-  if (result.accepted) await update(result.snapshot, "Simulated presentation changed; canonical state is unchanged.");
+  await update(
+    result.accepted ? result.snapshot : simulator.getSnapshot(sessionId),
+    result.accepted ? "Simulated presentation changed; canonical state is unchanged." : undefined
+  );
 });
 
 root.querySelector("#choices").addEventListener("click", async () => {
   renderChoices(root, await simulator.presentChoices(sessionId));
-  renderAudit();
+  await update(simulator.getSnapshot(sessionId));
 });
 
 root.querySelector("#recover").addEventListener("click", async () => {
@@ -88,6 +102,5 @@ for (const [id, action, message] of [
 ]) {
   root.querySelector(`#${id}`).addEventListener("click", async () => {
     await update(await simulator[action](sessionId), message);
-    root.querySelector("#enter").disabled = false;
   });
 }
