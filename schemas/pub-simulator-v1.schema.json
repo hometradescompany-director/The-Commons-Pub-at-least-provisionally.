@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/commons-pub/pub-simulator-v1.schema.json",
+  "$id": "urn:commons-pub:simulator:v1",
   "title": "Commons Pub Simulator v1",
   "type": "object",
   "properties": {
@@ -8,7 +8,8 @@
     "participant": { "$ref": "#/$defs/participant" },
     "observer": { "$ref": "#/$defs/observer" },
     "session": { "$ref": "#/$defs/session" },
-    "event": { "$ref": "#/$defs/event" }
+    "event": { "$ref": "#/$defs/event" },
+    "receipt": { "$ref": "#/$defs/receipt" }
   },
   "required": ["schemaVersion"],
   "additionalProperties": false,
@@ -39,22 +40,37 @@
       "properties": {
         "schemaVersion": { "const": 1 },
         "sessionId": { "type": "string" },
+        "participant": { "$ref": "#/$defs/participant" },
+        "observer": { "$ref": "#/$defs/observer" },
         "phase": {
           "enum": ["refused", "baseline", "modulated", "recovery", "verified_exit"]
         },
         "active": { "type": "boolean" },
         "elapsedTicks": { "type": "integer", "minimum": 0 },
         "expiresAtTick": { "type": "integer", "minimum": 1 },
-        "modulationLevel": { "type": "number", "minimum": 0, "maximum": 1 }
+        "modulationLevel": { "type": "number", "minimum": 0, "maximum": 1 },
+        "canonicalState": {
+          "type": "object",
+          "properties": {
+            "identity": { "type": "string" },
+            "authority": { "const": "unchanged-outside-simulation" },
+            "externalToolExecution": { "const": false }
+          },
+          "required": ["identity", "authority", "externalToolExecution"],
+          "additionalProperties": false
+        }
       },
       "required": [
         "schemaVersion",
         "sessionId",
+        "participant",
+        "observer",
         "phase",
         "active",
         "elapsedTicks",
         "expiresAtTick",
-        "modulationLevel"
+        "modulationLevel",
+        "canonicalState"
       ],
       "additionalProperties": false
     },
@@ -66,7 +82,23 @@
         "sessionId": { "type": "string" },
         "sequence": { "type": "integer", "minimum": 1 },
         "tick": { "type": "integer", "minimum": 0 },
-        "type": { "type": "string" },
+        "type": {
+          "enum": [
+            "consent.refused",
+            "session.refused",
+            "session.started",
+            "input.refused",
+            "modulation.changed",
+            "simulation.choices_presented",
+            "tool.execution.denied",
+            "clock.advanced",
+            "session.expired",
+            "recovery.started",
+            "recovery.verified",
+            "safe_reset.started",
+            "safe_reset.verified"
+          ]
+        },
         "data": { "type": "object" },
         "previousHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
@@ -81,6 +113,31 @@
         "data",
         "previousHash",
         "hash"
+      ],
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "sessionId": { "type": "string" },
+        "participant": { "$ref": "#/$defs/participant" },
+        "observer": { "$ref": "#/$defs/observer" },
+        "simulationOnly": { "const": true },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 512,
+          "items": { "$ref": "#/$defs/event" }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "sessionId",
+        "participant",
+        "observer",
+        "simulationOnly",
+        "events"
       ],
       "additionalProperties": false
     }

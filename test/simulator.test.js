@@ -23,6 +23,7 @@ test("seeded session replay produces identical event receipts", async () => {
     await first.simulator.presentChoices(first.session.sessionId),
     await second.simulator.presentChoices(second.session.sessionId)
   );
+  assert.equal(first.simulator.getReceipt(first.session.sessionId).events[0].data.seed, 42);
   assert.deepEqual(
     first.simulator.getReceipt(first.session.sessionId),
     second.simulator.getReceipt(second.session.sessionId)
@@ -98,9 +99,10 @@ test("cancellation and disconnect immediately restore baseline and exit", async 
 test("expiry resets modulation and records recovery", async () => {
   const { simulator, session } = await start(undefined, { durationTicks: 2 });
   await simulator.setModulation(session.sessionId, { level: 0.5 });
-  const final = await simulator.advanceTicks(session.sessionId, 2);
+  const final = await simulator.advanceTicks(session.sessionId, 24);
   assert.equal(final.active, false);
   assert.equal(final.phase, "verified_exit");
+  assert.equal(final.elapsedTicks, 2);
   assert.equal(final.modulationLevel, 0);
   assert.deepEqual(
     simulator.getReceipt(session.sessionId).events.map(event => event.type).slice(-3),
@@ -136,6 +138,8 @@ test("malformed input is rejected and does not create a session", async () => {
     privateMemory: "must not be accepted"
   }), TypeError);
   assert.throws(() => simulator.getSnapshot("session-1"), TypeError);
+  assert.throws(() => new PubSimulator({ maxConcurrentSessions: 10000 }), TypeError);
+  assert.throws(() => new PubSimulator({ participants: [{ id: "private", prompt: "not accepted" }] }), TypeError);
 });
 
 test("simultaneous sessions have isolated state and receipts", async () => {
@@ -156,6 +160,42 @@ test("audit chain verifies and detects event tampering", async () => {
   const changed = structuredClone(receipt);
   changed.events[0].data.expiresAtTick = 999;
   assert.equal(await simulator.verifyAudit(changed), false);
+  const changedIdentity = structuredClone(receipt);
+  changedIdentity.participant.identity = "fixture:other";
+  assert.equal(await simulator.verifyAudit(changedIdentity), false);
+});
+
+test("concurrent actions are serialized into one valid audit chain", async () => {
+  const { simulator, session } = await start();
+  await Promise.all([
+    simulator.setModulation(session.sessionId, { level: 0.3 }),
+    simulator.presentChoices(session.sessionId),
+    simulator.setModulation(session.sessionId, { level: 0.7 }),
+    simulator.requestExternalTool(session.sessionId)
+  ]);
+  const receipt = simulator.getReceipt(session.sessionId);
+  assert.deepEqual(receipt.events.map(event => event.sequence), [1, 2, 3, 4, 5]);
+  assert.equal(new Set(receipt.events.map(event => event.eventId)).size, 5);
+  assert.equal(await simulator.verifyAudit(receipt), true);
+});
+
+test("event budget exhaustion triggers a bounded safe reset", async () => {
+  const { simulator, session } = await start(new PubSimulator({ maxEventsPerSession: 8 }));
+  await simulator.setModulation(session.sessionId, { level: 0.3 });
+  await simulator.presentChoices(session.sessionId);
+  await simulator.setModulation(session.sessionId, { level: 0.6 });
+  await simulator.presentChoices(session.sessionId);
+  const result = await simulator.setModulation(session.sessionId, { level: 0.9 });
+  assert.equal(result.accepted, true);
+  assert.deepEqual(await simulator.presentChoices(session.sessionId), {
+    choices: [],
+    simulatedDelayMs: 0
+  });
+  const final = simulator.getSnapshot(session.sessionId);
+  assert.equal(final.active, false);
+  assert.equal(final.phase, "verified_exit");
+  assert.equal(final.modulationLevel, 0);
+  assert.equal(simulator.getReceipt(session.sessionId).events.at(-1).type, "safe_reset.verified");
 });
 
 test("emergency reset is safe for an active modulated session", async () => {
